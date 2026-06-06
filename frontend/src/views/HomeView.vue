@@ -92,7 +92,7 @@
         </div>
       </div>
 
-      <VworldApartmentMap
+      <KakaoApartmentMap
         :center="mapCenter"
         :apartments="apartments"
         :region-label="currentRegionLabel"
@@ -159,9 +159,9 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { Search } from 'lucide-vue-next';
 import { fetchDongs, fetchGuguns, fetchSidos } from '@/api/regionApi';
 import { searchApartments } from '@/api/apartmentApi';
-import VworldApartmentMap from '@/components/VworldApartmentMap.vue';
+import KakaoApartmentMap from '@/components/KakaoApartmentMap.vue';
 
-const DEFAULT_CENTER = { lat: 36.5, lng: 127.978, zoom: 7 };
+const DEFAULT_CENTER = { lat: 36.5, lng: 127.978, level: 13 };
 
 const keyword = ref('');
 const sidos = ref([]);
@@ -210,7 +210,7 @@ function shortRegionName(name) {
     .replace('도', '');
 }
 
-function moveMapTo(region, zoom) {
+function moveMapTo(region, level) {
   if (!region?.centerLat || !region?.centerLng) {
     return;
   }
@@ -218,7 +218,7 @@ function moveMapTo(region, zoom) {
   mapCenter.value = {
     lat: region.centerLat,
     lng: region.centerLng,
-    zoom,
+    level,
   };
 }
 
@@ -242,14 +242,14 @@ async function selectGugun(gugun) {
   selectedRegion.dong = null;
   selectedApartment.value = null;
   dongs.value = await fetchDongs(selectedRegion.sido.name, gugun.name);
-  moveMapTo(gugun, 12);
+  moveMapTo(gugun, 6);
   await loadApartments();
 }
 
 async function selectDong(dong) {
   selectedRegion.dong = dong;
   selectedApartment.value = null;
-  moveMapTo(dong, 15);
+  moveMapTo(dong, 4);
   await loadApartments();
 }
 
@@ -283,7 +283,7 @@ function selectApartment(apartment) {
   mapCenter.value = {
     lat: apartment.latitude,
     lng: apartment.longitude,
-    zoom: 16,
+    level: 3,
   };
 }
 
