@@ -98,6 +98,9 @@ const SIDO_SHORT_NAMES = {
   50: '제주',
 };
 
+const MANY_APARTMENT_COUNT = 40;
+const MEDIUM_APARTMENT_COUNT = 15;
+
 const floatingMetaLabel = computed(() => {
   if (props.showApartmentMarkers) {
     return `${props.apartments.length.toLocaleString()}개 단지`;
@@ -165,6 +168,85 @@ function getApartmentMeta(apartment) {
   const locationLabel = apartment.dongName || apartment.gugunName || null;
 
   return [buildYear, householdLabel || locationLabel].filter(Boolean).join(' | ') || '단지 정보';
+}
+
+function getMedian(values) {
+  const sortedValues = [...values].sort((left, right) => left - right);
+  const middleIndex = Math.floor(sortedValues.length / 2);
+
+  if (sortedValues.length % 2) {
+    return sortedValues[middleIndex];
+  }
+
+  return (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2;
+}
+
+function getMedianPosition(positions) {
+  const latitudes = positions.map((position) => position.getLat());
+  const longitudes = positions.map((position) => position.getLng());
+
+  return {
+    lat: getMedian(latitudes),
+    lng: getMedian(longitudes),
+  };
+}
+
+function getDistanceFromCenter(position, center) {
+  const latDistance = (position.getLat() - center.lat) * 111;
+  const lngDistance = (position.getLng() - center.lng) * 88;
+
+  return Math.sqrt(latDistance ** 2 + lngDistance ** 2);
+}
+
+function getPositionsWithoutOutliers(positions) {
+  if (positions.length < 10) {
+    return positions;
+  }
+
+  const center = getMedianPosition(positions);
+  const positionsByDistance = positions
+    .map((position) => ({
+      position,
+      distance: getDistanceFromCenter(position, center),
+    }))
+    .sort((left, right) => left.distance - right.distance);
+
+  const keepCount = Math.max(1, Math.ceil(positions.length * 0.85));
+  return positionsByDistance.slice(0, keepCount).map((item) => item.position);
+}
+
+function fitMapToApartmentOverlays() {
+  if (apartmentOverlays.length <= 1 || props.selectedAptSeq) {
+    return;
+  }
+
+  const positions = apartmentOverlays.map(({ position }) => position);
+
+  // 단지가 많은 동은 모든 좌표를 한 화면에 맞추면 카드가 겹치고, 좌표 이상치 하나에도 과하게 줌아웃된다.
+  // 그래서 중앙값 좌표를 기준으로 확대해서 사용자가 지도 위 단지명을 읽을 수 있게 한다.
+  if (positions.length >= MANY_APARTMENT_COUNT) {
+    const center = getMedianPosition(positions);
+
+    kakaoMap.setCenter(new kakaoSdk.maps.LatLng(center.lat, center.lng));
+    kakaoMap.setLevel(4);
+    return;
+  }
+
+  const bounds = new kakaoSdk.maps.LatLngBounds();
+  const visiblePositions = positions.length >= MEDIUM_APARTMENT_COUNT
+    ? getPositionsWithoutOutliers(positions)
+    : positions;
+
+  visiblePositions.forEach((position) => bounds.extend(position));
+  kakaoMap.setBounds(bounds);
+
+  if (
+    positions.length >= MEDIUM_APARTMENT_COUNT
+    && typeof kakaoMap.getLevel === 'function'
+    && kakaoMap.getLevel() > 4
+  ) {
+    kakaoMap.setLevel(4);
+  }
 }
 
 function toRegionLatLng(region) {
@@ -283,11 +365,7 @@ function refreshMarkers() {
     .map(createApartmentOverlay)
     .filter(Boolean);
 
-  if (apartmentOverlays.length > 1) {
-    const bounds = new kakaoSdk.maps.LatLngBounds();
-    apartmentOverlays.forEach(({ position }) => bounds.extend(position));
-    kakaoMap.setBounds(bounds);
-  }
+  fitMapToApartmentOverlays();
 }
 
 function refreshRegionOverlays() {
