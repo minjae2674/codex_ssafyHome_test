@@ -33,11 +33,20 @@
       <button class="icon-only-button" type="button" title="알림">
         <Bell :size="16" />
       </button>
-      <RouterLink class="login-link" to="/login">
+      <div v-if="authStore.isAuthenticated" class="user-menu">
+        <span class="user-chip">
+          <User :size="14" />
+          {{ authStore.nickname }}
+        </span>
+        <button class="logout-button" type="button" @click="logout">
+          로그아웃
+        </button>
+      </div>
+      <RouterLink v-else class="login-link" to="/login">
         <User :size="14" />
         <span>로그인</span>
       </RouterLink>
-      <RouterLink class="primary-link" to="/signup">회원가입</RouterLink>
+      <RouterLink v-if="!authStore.isAuthenticated" class="primary-link" to="/signup">회원가입</RouterLink>
     </div>
   </header>
 </template>
@@ -46,9 +55,11 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Bell, Globe, Home, Search, User } from 'lucide-vue-next';
+import { useAuthStore } from '@/stores/authStore';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 const headerKeyword = ref('');
 
 const isHomeRoute = computed(() => route.name === 'home');
@@ -61,6 +72,11 @@ function submitHeaderSearch() {
     name: 'home',
     query: keyword ? { keyword } : {},
   });
+}
+
+function logout() {
+  authStore.logout();
+  router.push({ name: 'home' });
 }
 
 watch(

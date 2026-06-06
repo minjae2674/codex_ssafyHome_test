@@ -5,6 +5,16 @@ export const http = axios.create({
   timeout: 10000,
 });
 
+http.interceptors.request.use((config) => {
+  const accessToken = localStorage.getItem('ssafyHomeAccessToken');
+
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return config;
+});
+
 export function unwrapApiResponse(response) {
   if (!response.data?.success) {
     throw new Error(response.data?.message || 'API 요청에 실패했습니다.');
