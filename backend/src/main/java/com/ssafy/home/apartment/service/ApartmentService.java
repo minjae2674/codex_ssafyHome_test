@@ -1,9 +1,15 @@
 package com.ssafy.home.apartment.service;
 
+import com.ssafy.home.apartment.dto.ApartmentDealResponse;
+import com.ssafy.home.apartment.dto.ApartmentDealStatsResponse;
+import com.ssafy.home.apartment.dto.ApartmentDetailResponse;
+import com.ssafy.home.apartment.dto.ApartmentPriceTrendResponse;
 import com.ssafy.home.apartment.dto.ApartmentSearchResponse;
 import com.ssafy.home.apartment.dto.ApartmentSummaryResponse;
 import com.ssafy.home.apartment.mapper.ApartmentMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -41,5 +47,37 @@ public class ApartmentService {
         long totalCount = apartmentMapper.countApartments(keyword, sidoName, gugunName, dongCode);
 
         return new ApartmentSearchResponse(apartments, safePage, safeSize, totalCount);
+    }
+
+    public ApartmentDetailResponse getApartmentDetail(String aptSeq) {
+        ApartmentSummaryResponse apartment = apartmentMapper.findApartmentByAptSeq(aptSeq);
+
+        if (apartment == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다.");
+        }
+
+        // 화면의 단지 상세 패널에서 필요한 거래 통계는 모두 housedeals에서 계산한다.
+        ApartmentDealStatsResponse dealStats = apartmentMapper.findDealStatsByAptSeq(aptSeq);
+        ApartmentDealResponse latestDeal = apartmentMapper.findLatestDealByAptSeq(aptSeq);
+        List<ApartmentPriceTrendResponse> priceTrend = apartmentMapper.findPriceTrendByAptSeq(aptSeq);
+        List<ApartmentDealResponse> recentDeals = apartmentMapper.findRecentDealsByAptSeq(aptSeq, 10);
+
+        return new ApartmentDetailResponse(
+                apartment,
+                dealStats,
+                latestDeal,
+                priceTrend,
+                recentDeals
+        );
+    }
+
+    public List<ApartmentDealResponse> getApartmentDeals(String aptSeq) {
+        ApartmentSummaryResponse apartment = apartmentMapper.findApartmentByAptSeq(aptSeq);
+
+        if (apartment == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다.");
+        }
+
+        return apartmentMapper.findRecentDealsByAptSeq(aptSeq, 30);
     }
 }
