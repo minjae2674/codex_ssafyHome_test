@@ -193,6 +193,7 @@
         :active-level="regionStep"
         :show-apartment-markers="hasSelectedDong"
         :region-label="currentRegionLabel"
+        :selected-apt-seq="selectedApartment?.aptSeq || ''"
         @select-apartment="selectApartment"
         @select-region="selectMapRegion"
       />

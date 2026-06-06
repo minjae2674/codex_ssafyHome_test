@@ -42,6 +42,10 @@ const props = defineProps({
     type: String,
     default: '대한민국',
   },
+  selectedAptSeq: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['selectApartment', 'selectRegion']);
@@ -51,27 +55,47 @@ const mapError = ref('');
 
 let kakaoMap = null;
 let kakaoSdk = null;
-let apartmentMarkers = [];
+let apartmentOverlays = [];
 let regionOverlays = [];
 
 const SIDO_DISPLAY_CENTERS = {
-  11: { lat: 37.6700, lng: 126.9900 },
-  26: { lat: 35.1796, lng: 129.0756 },
-  27: { lat: 35.8714, lng: 128.6014 },
-  28: { lat: 37.4300, lng: 126.6200 },
+  11: { lat: 37.7200, lng: 126.9500 },
+  26: { lat: 35.1200, lng: 129.1700 },
+  27: { lat: 35.7700, lng: 128.6500 },
+  28: { lat: 37.3300, lng: 126.4300 },
   29: { lat: 35.1595, lng: 126.8526 },
-  30: { lat: 36.3504, lng: 127.3845 },
-  31: { lat: 35.5384, lng: 129.3114 },
-  36: { lat: 36.4800, lng: 127.2890 },
-  41: { lat: 37.2600, lng: 127.3300 },
+  30: { lat: 36.2100, lng: 127.3300 },
+  31: { lat: 35.6200, lng: 129.3000 },
+  36: { lat: 36.6100, lng: 127.0800 },
+  41: { lat: 37.3800, lng: 127.6500 },
   42: { lat: 37.8228, lng: 128.1555 },
-  43: { lat: 36.6357, lng: 127.4912 },
-  44: { lat: 36.6588, lng: 126.6728 },
-  45: { lat: 35.7175, lng: 127.1530 },
-  46: { lat: 34.8679, lng: 126.9910 },
-  47: { lat: 36.4919, lng: 128.8889 },
-  48: { lat: 35.4606, lng: 128.2132 },
+  43: { lat: 36.8200, lng: 127.7400 },
+  44: { lat: 36.3200, lng: 126.6000 },
+  45: { lat: 35.6200, lng: 127.1700 },
+  46: { lat: 34.9000, lng: 126.6800 },
+  47: { lat: 36.4100, lng: 128.8000 },
+  48: { lat: 35.1800, lng: 128.1700 },
   50: { lat: 33.4996, lng: 126.5312 },
+};
+
+const SIDO_SHORT_NAMES = {
+  11: '서울',
+  26: '부산',
+  27: '대구',
+  28: '인천',
+  29: '광주',
+  30: '대전',
+  31: '울산',
+  36: '세종',
+  41: '경기',
+  42: '강원',
+  43: '충북',
+  44: '충남',
+  45: '전북',
+  46: '전남',
+  47: '경북',
+  48: '경남',
+  50: '제주',
 };
 
 const floatingMetaLabel = computed(() => {
@@ -104,8 +128,8 @@ function getMapLevel(center) {
 }
 
 function clearMarkers() {
-  apartmentMarkers.forEach((marker) => marker.setMap(null));
-  apartmentMarkers = [];
+  apartmentOverlays.forEach(({ overlay }) => overlay.setMap(null));
+  apartmentOverlays = [];
 }
 
 function clearRegionOverlays() {
@@ -115,6 +139,10 @@ function clearRegionOverlays() {
 
 function getRegionLabel(region) {
   if (props.activeLevel === 'sido') {
+    if (SIDO_SHORT_NAMES[region.code]) {
+      return SIDO_SHORT_NAMES[region.code];
+    }
+
     return region.name
       .replace('특별시', '')
       .replace('광역시', '')
@@ -124,6 +152,19 @@ function getRegionLabel(region) {
   }
 
   return region.name;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function getApartmentMeta(apartment) {
+  const buildYear = apartment.buildYear ? `${apartment.buildYear}년` : null;
+  const householdCount = apartment.householdCount || apartment.households || apartment.household;
+  const householdLabel = householdCount ? `${formatNumber(householdCount)}세대` : null;
+  const locationLabel = apartment.dongName || apartment.gugunName || null;
+
+  return [buildYear, householdLabel || locationLabel].filter(Boolean).join(' | ') || '단지 정보';
 }
 
 function toRegionLatLng(region) {
@@ -140,25 +181,55 @@ function toRegionLatLng(region) {
   return new kakaoSdk.maps.LatLng(latitude, longitude);
 }
 
-function createMarker(apartment) {
-  const markerPosition = toMarkerLatLng(apartment);
+function createApartmentOverlay(apartment) {
+  const overlayPosition = toMarkerLatLng(apartment);
 
-  if (!markerPosition) {
+  if (!overlayPosition) {
     return null;
   }
 
-  const marker = new kakaoSdk.maps.Marker({
-    map: kakaoMap,
-    position: markerPosition,
-    title: apartment.aptName,
-    clickable: true,
-  });
+  const overlayButton = document.createElement('button');
+  overlayButton.type = 'button';
+  overlayButton.className = 'apartment-map-overlay';
+  overlayButton.setAttribute('aria-label', `${apartment.aptName} 단지 상세 보기`);
 
-  kakaoSdk.maps.event.addListener(marker, 'click', () => {
+  if (props.selectedAptSeq === apartment.aptSeq) {
+    overlayButton.classList.add('apartment-map-overlay--active');
+  }
+
+  const icon = document.createElement('span');
+  icon.className = 'apartment-map-overlay__icon';
+  icon.setAttribute('aria-hidden', 'true');
+
+  const textBox = document.createElement('span');
+  textBox.className = 'apartment-map-overlay__text';
+
+  const name = document.createElement('span');
+  name.className = 'apartment-map-overlay__name';
+  name.textContent = apartment.aptName;
+
+  const meta = document.createElement('span');
+  meta.className = 'apartment-map-overlay__meta';
+  meta.textContent = getApartmentMeta(apartment);
+
+  textBox.append(name, meta);
+  overlayButton.append(icon, textBox);
+
+  overlayButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     emit('selectApartment', apartment);
   });
 
-  return marker;
+  const overlay = new kakaoSdk.maps.CustomOverlay({
+    map: kakaoMap,
+    position: overlayPosition,
+    content: overlayButton,
+    yAnchor: 1.35,
+    zIndex: props.selectedAptSeq === apartment.aptSeq ? 3000000 : 2000000,
+  });
+
+  return { overlay, position: overlayPosition };
 }
 
 function createRegionOverlay(region) {
@@ -172,11 +243,19 @@ function createRegionOverlay(region) {
   overlayButton.type = 'button';
   overlayButton.className = `region-map-overlay region-map-overlay--${props.activeLevel}`;
   overlayButton.setAttribute('aria-label', `${region.name} 지역으로 이동`);
-  overlayButton.innerHTML = `
-    <span class="region-map-overlay__name">${getRegionLabel(region)}</span>
-    <span class="region-map-overlay__count">${Number(region.apartmentCount || 0).toLocaleString()}개 단지</span>
-  `;
-  overlayButton.addEventListener('click', () => {
+
+  const name = document.createElement('span');
+  name.className = 'region-map-overlay__name';
+  name.textContent = getRegionLabel(region);
+
+  const count = document.createElement('span');
+  count.className = 'region-map-overlay__count';
+  count.textContent = formatNumber(region.apartmentCount);
+
+  overlayButton.append(name, count);
+  overlayButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     emit('selectRegion', region);
   });
 
@@ -200,13 +279,13 @@ function refreshMarkers() {
     return;
   }
 
-  apartmentMarkers = props.apartments
-    .map(createMarker)
+  apartmentOverlays = props.apartments
+    .map(createApartmentOverlay)
     .filter(Boolean);
 
-  if (apartmentMarkers.length > 1) {
+  if (apartmentOverlays.length > 1) {
     const bounds = new kakaoSdk.maps.LatLngBounds();
-    apartmentMarkers.forEach((marker) => bounds.extend(marker.getPosition()));
+    apartmentOverlays.forEach(({ position }) => bounds.extend(position));
     kakaoMap.setBounds(bounds);
   }
 }
@@ -268,7 +347,7 @@ watch(
 );
 
 watch(
-  () => [props.regions, props.activeLevel, props.showApartmentMarkers],
+  () => [props.regions, props.activeLevel, props.showApartmentMarkers, props.selectedAptSeq],
   () => {
     refreshRegionOverlays();
     refreshMarkers();
