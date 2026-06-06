@@ -189,8 +189,12 @@
       <KakaoApartmentMap
         :center="mapCenter"
         :apartments="apartments"
+        :regions="mapRegionOptions"
+        :active-level="regionStep"
+        :show-apartment-markers="hasSelectedDong"
         :region-label="currentRegionLabel"
         @select-apartment="selectApartment"
+        @select-region="selectMapRegion"
       />
 
       <aside v-if="selectedApartment" class="detail-panel">
@@ -381,6 +385,21 @@ const showDongSelector = computed(() => {
 });
 
 const activeLevel = computed(() => regionStep.value);
+const mapRegionOptions = computed(() => {
+  if (hasSelectedDong.value) {
+    return [];
+  }
+
+  if (regionStep.value === 'gugun') {
+    return guguns.value;
+  }
+
+  if (regionStep.value === 'dong') {
+    return dongs.value;
+  }
+
+  return sidos.value;
+});
 const detailApartment = computed(() => {
   return selectedApartmentDetail.value?.apartment || selectedApartment.value || {};
 });
@@ -530,29 +549,29 @@ async function selectSido(sido) {
   selectedRegion.sido = sido;
   selectedRegion.gugun = null;
   selectedRegion.dong = null;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'gugun';
   dongListOpen.value = true;
   dongs.value = [];
   guguns.value = await fetchGuguns(sido.name);
-  moveMapTo(sido, 9);
+  moveMapTo(sido, 8);
   await loadApartments();
 }
 
 async function selectGugun(gugun) {
   selectedRegion.gugun = gugun;
   selectedRegion.dong = null;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'dong';
   dongListOpen.value = true;
   dongs.value = await fetchDongs(selectedRegion.sido.name, gugun.name);
-  moveMapTo(gugun, 6);
+  moveMapTo(gugun, 5);
   await loadApartments();
 }
 
 async function selectDong(dong) {
   selectedRegion.dong = dong;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'dong';
   dongListOpen.value = false;
   moveMapTo(dong, 4);
@@ -563,7 +582,7 @@ async function resetToSido() {
   selectedRegion.sido = null;
   selectedRegion.gugun = null;
   selectedRegion.dong = null;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'sido';
   dongListOpen.value = true;
   guguns.value = [];
@@ -579,11 +598,11 @@ async function resetToGugun() {
 
   selectedRegion.gugun = null;
   selectedRegion.dong = null;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'gugun';
   dongListOpen.value = true;
   dongs.value = [];
-  moveMapTo(selectedRegion.sido, 9);
+  moveMapTo(selectedRegion.sido, 8);
   await loadApartments();
 }
 
@@ -593,10 +612,10 @@ async function resetToDong() {
   }
 
   selectedRegion.dong = null;
-  selectedApartment.value = null;
+  closeApartmentDetail();
   regionStep.value = 'dong';
   dongListOpen.value = true;
-  moveMapTo(selectedRegion.gugun, 6);
+  moveMapTo(selectedRegion.gugun, 5);
   await loadApartments();
 }
 
@@ -621,6 +640,23 @@ function changeMapLevel(level) {
   }
 
   regionStep.value = selectedRegion.sido ? 'gugun' : 'sido';
+}
+
+async function selectMapRegion(region) {
+  // 지도 위 지역 카드를 클릭해도 왼쪽 패널 클릭과 완전히 같은 흐름을 탄다.
+  if (regionStep.value === 'sido') {
+    await selectSido(region);
+    return;
+  }
+
+  if (regionStep.value === 'gugun') {
+    await selectGugun(region);
+    return;
+  }
+
+  if (regionStep.value === 'dong') {
+    await selectDong(region);
+  }
 }
 
 function moveToMyLocation() {

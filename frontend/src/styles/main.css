@@ -638,6 +638,92 @@ a {
   font-size: 13px;
 }
 
+.region-map-overlay {
+  position: relative;
+  display: flex;
+  min-width: 104px;
+  flex-direction: column;
+  overflow: visible;
+  padding: 0;
+  border: 2px solid #1d4fff;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 5px 12px rgba(20, 45, 80, 0.28);
+  color: #111827;
+  text-align: center;
+  transform: translateY(-4px);
+}
+
+.region-map-overlay::after {
+  position: absolute;
+  bottom: -16px;
+  left: 15px;
+  width: 0;
+  height: 0;
+  border-top: 16px solid #1d4fff;
+  border-right: 15px solid transparent;
+  content: "";
+}
+
+.region-map-overlay:hover {
+  transform: translateY(-7px);
+}
+
+.region-map-overlay__name {
+  display: block;
+  min-height: 32px;
+  padding: 5px 12px 4px;
+  background: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.region-map-overlay__count {
+  display: block;
+  min-height: 31px;
+  padding: 5px 10px 6px;
+  background: #1d4fff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.region-map-overlay--gugun {
+  min-width: 88px;
+}
+
+.region-map-overlay--gugun .region-map-overlay__name {
+  min-height: 28px;
+  padding: 4px 9px 3px;
+  font-size: 14px;
+}
+
+.region-map-overlay--gugun .region-map-overlay__count {
+  min-height: 27px;
+  padding: 4px 8px 5px;
+  font-size: 12px;
+}
+
+.region-map-overlay--dong {
+  min-width: 78px;
+}
+
+.region-map-overlay--dong .region-map-overlay__name {
+  min-height: 26px;
+  padding: 4px 8px 3px;
+  font-size: 13px;
+}
+
+.region-map-overlay--dong .region-map-overlay__count {
+  min-height: 25px;
+  padding: 4px 7px;
+  font-size: 11px;
+}
+
 .detail-panel {
   position: absolute;
   top: 64px;
